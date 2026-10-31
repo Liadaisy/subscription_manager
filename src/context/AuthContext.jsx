@@ -1,65 +1,66 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { INITIAL_USERS } from '../data/initialData';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+} from 'react';
 
-const AuthContext = createContext();
+import { apiClient } from '../services/api';
+
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem('brightloop_auth_user');
-      if (savedUser) {
-        return JSON.parse(savedUser);
-      }
-    } catch (e) {
-      console.error('Failed to load user from localStorage', e);
-    }
-    // Default to admin for fast demo preview, or null if strict login preferred
-    return INITIAL_USERS[0]; // Admin by default
-  });
-
+  const [user, setUser] = useState(null);
   const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(true);
 
+  // Restore an existing backend session when the app opens
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('brightloop_auth_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('brightloop_auth_user');
-    }
-  }, [user]);
+    const restoreSession = async () => {
+      const token = localStorage.getItem('brightloop_access_token');
 
-  const login = (email, password) => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const currentUser = await apiClient.getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        apiClient.logout();
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  // Authenticate using the backend
+  const login = async (email, password) => {
     setAuthError('');
-    const foundUser = INITIAL_USERS.find(
-      u => u.email.toLowerCase() === email.toLowerCase().trim()
-    );
 
-    if (!foundUser) {
-      setAuthError('No user found with this email address.');
-      return false;
+    try {
+      const loggedUser = await apiClient.login({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      setUser(loggedUser);
+      return loggedUser;
+    } catch (error) {
+      setAuthError(error.message || 'Login failed.');
+      return null;
     }
-
-    if (foundUser.password !== password) {
-      setAuthError('Invalid password. Please try again or use demo credentials.');
-      return false;
-    }
-
-    setUser(foundUser);
-    return foundUser;
   };
 
-  const loginAsRole = (role) => {
-    const roleUser = INITIAL_USERS.find(u => u.role === role);
-    if (roleUser) {
-      setUser(roleUser);
-      setAuthError('');
-      return roleUser;
-    }
-    return null;
-  };
-
+  // Logout
   const logout = () => {
+    apiClient.logout();
     setUser(null);
-    localStorage.removeItem('brightloop_auth_user');
+    setAuthError('');
   };
 
   return (
@@ -67,11 +68,10 @@ export function AuthProvider({ children }) {
       value={{
         user,
         login,
-        loginAsRole,
         logout,
         authError,
         setAuthError,
-        demoUsers: INITIAL_USERS
+        loading,
       }}
     >
       {children}
@@ -81,8 +81,10 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+
   return context;
 }

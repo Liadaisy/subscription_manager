@@ -1,58 +1,69 @@
-/**
- * Brightloop API Client Adapter
- * 
- * NOTE FOR BACKEND TEAMMATE:
- * This module is configured as a ready-to-wire API service layer.
- * To connect to your backend REST API, simply replace the localStorage handlers
- * with standard axios/fetch requests to your backend endpoints (e.g. baseURL: 'http://localhost:8000/api').
- */
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+).replace(/\/$/, '');
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const TOKEN_KEY = 'brightloop_access_token';
+
+async function request(endpoint, options = {}) {
+  const token = localStorage.getItem(TOKEN_KEY);
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data.detail || `Request failed with status ${response.status}`
+    );
+  }
+
+  return data;
+}
 
 export const apiClient = {
-  // Auth endpoints
   async login(credentials) {
-    console.info('[API Adapter] POST /auth/login', credentials);
-    return { success: true };
+    const data = await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+
+    try {
+      return await request('/users/me');
+    } catch (error) {
+      localStorage.removeItem(TOKEN_KEY);
+      throw error;
+    }
   },
 
-  // Plan endpoints
+  async getCurrentUser() {
+    return request('/users/me');
+  },
+
+  logout() {
+    localStorage.removeItem(TOKEN_KEY);
+  },
+
   async getPlans() {
-    console.info('[API Adapter] GET /plans');
-    return [];
+    return request('/plans');
   },
+
   async createPlan(plan) {
-    console.info('[API Adapter] POST /plans', plan);
-    return plan;
+    return request('/plans', {
+      method: 'POST',
+      body: JSON.stringify(plan),
+    });
   },
 
-  // Subscription endpoints
-  async getSubscriptions() {
-    console.info('[API Adapter] GET /subscriptions');
-    return [];
+  async getProducts() {
+    return request('/products');
   },
-  async createSubscription(sub) {
-    console.info('[API Adapter] POST /subscriptions', sub);
-    return sub;
-  },
-  async cancelSubscription(id) {
-    console.info(`[API Adapter] PATCH /subscriptions/${id}/cancel`);
-    return { success: true };
-  },
-
-  // Invoice endpoints
-  async getInvoices() {
-    console.info('[API Adapter] GET /invoices');
-    return [];
-  },
-  async generateInvoice(payload) {
-    console.info('[API Adapter] POST /invoices/generate', payload);
-    return payload;
-  },
-
-  // Payment endpoints
-  async recordPayment(payment) {
-    console.info('[API Adapter] POST /payments', payment);
-    return payment;
-  }
 };
