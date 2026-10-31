@@ -353,7 +353,9 @@ git pull origin main
 ## Contributors
 
 Developed as part of the Brightloop Subscription Management hackathon project.
-
+** Ann Lia Sunil **
+** Aleena Johnson **
+** Ann Mariya T M **
 ---
 
 **Repository:** https://github.com/Liadaisy/subscription_manager
