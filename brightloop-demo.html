@@ -1,0 +1,2130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brightloop – Subscription & Recurring Billing Management System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              900: '#0B132B',
+              800: '#1C2541',
+              700: '#233154',
+              600: '#3A506B',
+            },
+            brand: {
+              50: '#EEF2FF',
+              100: '#E0E7FF',
+              200: '#C7D2FE',
+              300: '#A5B4FC',
+              400: '#818CF8',
+              500: '#6366F1',
+              600: '#4F46E5',
+              700: '#4338CA',
+              800: '#3730A3',
+              900: '#312E81',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- React & Babel CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #printable-invoice-modal, #printable-invoice-modal * {
+        visibility: visible !important;
+      }
+      #printable-invoice-modal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 20px;
+        background: white;
+        box-shadow: none;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-indigo-500 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, createContext, useContext } = React;
+
+    // --- BUILT-IN ICON SVGS FOR INSTANT RELIABILITY (ZERO FLICKER) ---
+    const Icons = {
+      Sparkles: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+      ),
+      Dashboard: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-4a1 1 0 011-1h4a1 1 0 011 1v8a1 1 0 01-1 1h-4a1 1 0 01-1-1v-8z" />
+        </svg>
+      ),
+      Repeat: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      ),
+      FileText: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      CreditCard: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+      Users: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ),
+      Layers: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      ),
+      FileCheck: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
+      UserCheck: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      ),
+      Plus: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      ),
+      Search: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      ),
+      Check: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ),
+      X: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      ),
+      Dollar: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 8c-1.11 0-2.08-.402-2.599-1M12 16v2m-6-6a9 9 0 1118 0 9 9 0 01-18 0z" />
+        </svg>
+      ),
+      Printer: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+      ),
+      Download: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+      ),
+      Eye: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+      ),
+      Alert: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      ),
+      LogOut: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+      ),
+      ArrowRight: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      ),
+      Menu: ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      )
+    };
+
+    // --- SEED DATA ---
+    const INITIAL_USERS = [
+      {
+        id: 'user-admin',
+        name: 'Alex Morgan',
+        email: 'admin@brightloop.com',
+        role: 'admin',
+        title: 'Operations Director',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 'user-staff',
+        name: 'Sarah Chen',
+        email: 'staff@brightloop.com',
+        role: 'staff',
+        title: 'Billing Specialist',
+        avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 'user-customer',
+        name: 'David Miller',
+        email: 'customer@acme.com',
+        role: 'customer',
+        title: 'CTO at Acme Corp',
+        customerId: 'CUST-001',
+        company: 'Acme Corporation',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+      }
+    ];
+
+    const INITIAL_PLANS = [
+      {
+        id: 'PLAN-001',
+        name: 'Starter Cloud',
+        price: 49,
+        yearlyPrice: 490,
+        cycle: 'Monthly',
+        popular: false,
+        features: ['Up to 5 Members', '50 GB Storage', 'Standard Reports', 'Email Support']
+      },
+      {
+        id: 'PLAN-002',
+        name: 'Professional Growth',
+        price: 149,
+        yearlyPrice: 1490,
+        cycle: 'Monthly',
+        popular: true,
+        features: ['Up to 25 Members', '500 GB Storage', 'Advanced Analytics', 'Priority 24/7 SLA', 'Custom Webhooks']
+      },
+      {
+        id: 'PLAN-003',
+        name: 'Enterprise Scale',
+        price: 499,
+        yearlyPrice: 4990,
+        cycle: 'Monthly',
+        popular: false,
+        features: ['Unlimited Members', '2 TB Storage', '99.99% Dedicated SLA', 'Account Manager', 'Custom SSO/API']
+      }
+    ];
+
+    const INITIAL_CUSTOMERS = [
+      { id: 'CUST-001', name: 'David Miller', company: 'Acme Corporation', email: 'customer@acme.com', phone: '+1 555-234-5678', address: '100 Silicon Blvd, Suite 400, San Francisco, CA', totalSpent: 1640.00, status: 'Active' },
+      { id: 'CUST-002', name: 'Elena Rostova', company: 'NovaWave Labs', email: 'elena@novawave.io', phone: '+1 555-892-1204', address: '450 Tech Park Way, Austin, TX', totalSpent: 5289.00, status: 'Active' },
+      { id: 'CUST-003', name: 'Marcus Vance', company: 'Apex Logistics', email: 'marcus@apexlog.com', phone: '+1 555-671-8899', address: '78 Cargo Way, Chicago, IL', totalSpent: 294.00, status: 'Delinquent' },
+      { id: 'CUST-004', name: 'Dr. Aisha Khan', company: 'Lumina Health Systems', email: 'aisha@lumina.org', phone: '+1 555-441-2980', address: '880 Medical Plaza, Boston, MA', totalSpent: 890.00, status: 'Active' }
+    ];
+
+    const INITIAL_SUBSCRIPTIONS = [
+      {
+        id: 'SUB-1001',
+        customerId: 'CUST-001',
+        customerName: 'David Miller',
+        customerCompany: 'Acme Corporation',
+        customerEmail: 'customer@acme.com',
+        planId: 'PLAN-002',
+        planName: 'Professional Growth',
+        amount: 149,
+        billingCycle: 'Monthly',
+        startDate: '2026-10-01',
+        expiryDate: '2026-11-01',
+        status: 'Active'
+      },
+      {
+        id: 'SUB-1002',
+        customerId: 'CUST-002',
+        customerName: 'Elena Rostova',
+        customerCompany: 'NovaWave Labs',
+        customerEmail: 'elena@novawave.io',
+        planId: 'PLAN-003',
+        planName: 'Enterprise Scale',
+        amount: 4990,
+        billingCycle: 'Yearly',
+        startDate: '2026-06-15',
+        expiryDate: '2027-06-15',
+        status: 'Active'
+      },
+      {
+        id: 'SUB-1003',
+        customerId: 'CUST-003',
+        customerName: 'Marcus Vance',
+        customerCompany: 'Apex Logistics',
+        customerEmail: 'marcus@apexlog.com',
+        planId: 'PLAN-001',
+        planName: 'Starter Cloud',
+        amount: 49,
+        billingCycle: 'Monthly',
+        startDate: '2026-09-10',
+        expiryDate: '2026-10-10',
+        status: 'Overdue'
+      }
+    ];
+
+    const INITIAL_INVOICES = [
+      {
+        id: 'INV-2026-001',
+        subscriptionId: 'SUB-1001',
+        customerId: 'CUST-001',
+        customerName: 'David Miller',
+        customerCompany: 'Acme Corporation',
+        customerEmail: 'customer@acme.com',
+        customerAddress: '100 Silicon Blvd, Suite 400, San Francisco, CA',
+        items: [{ description: 'Professional Growth Plan (Monthly)', quantity: 1, unitPrice: 149.00, amount: 149.00 }],
+        subtotal: 149.00,
+        taxRate: 10,
+        taxAmount: 14.90,
+        discountAmount: 0.00,
+        totalAmount: 163.90,
+        paidAmount: 163.90,
+        issueDate: '2026-10-01',
+        dueDate: '2026-10-15',
+        status: 'Paid',
+        paymentMethod: 'Credit Card',
+        notes: 'Thank you for your business with Brightloop.'
+      },
+      {
+        id: 'INV-2026-002',
+        subscriptionId: 'SUB-1002',
+        customerId: 'CUST-002',
+        customerName: 'Elena Rostova',
+        customerCompany: 'NovaWave Labs',
+        customerEmail: 'elena@novawave.io',
+        customerAddress: '450 Tech Park Way, Austin, TX',
+        items: [{ description: 'Enterprise Scale Plan (Yearly Commitment)', quantity: 1, unitPrice: 4990.00, amount: 4990.00 }],
+        subtotal: 4990.00,
+        taxRate: 10,
+        taxAmount: 499.00,
+        discountAmount: 200.00,
+        totalAmount: 5289.00,
+        paidAmount: 5289.00,
+        issueDate: '2026-06-15',
+        dueDate: '2026-06-30',
+        status: 'Paid',
+        paymentMethod: 'Bank Wire',
+        notes: 'Annual enterprise agreement terms applied.'
+      },
+      {
+        id: 'INV-2026-003',
+        subscriptionId: 'SUB-1003',
+        customerId: 'CUST-003',
+        customerName: 'Marcus Vance',
+        customerCompany: 'Apex Logistics',
+        customerEmail: 'marcus@apexlog.com',
+        customerAddress: '78 Cargo Way, Terminal 4, Chicago, IL',
+        items: [{ description: 'Starter Cloud Plan (Monthly)', quantity: 1, unitPrice: 49.00, amount: 49.00 }],
+        subtotal: 49.00,
+        taxRate: 10,
+        taxAmount: 4.90,
+        discountAmount: 0.00,
+        totalAmount: 53.90,
+        paidAmount: 0.00,
+        issueDate: '2026-09-10',
+        dueDate: '2026-09-24',
+        status: 'Overdue',
+        paymentMethod: 'Pending',
+        notes: 'Immediate payment required.'
+      },
+      {
+        id: 'INV-2026-004',
+        subscriptionId: 'SUB-1001',
+        customerId: 'CUST-001',
+        customerName: 'David Miller',
+        customerCompany: 'Acme Corporation',
+        customerEmail: 'customer@acme.com',
+        customerAddress: '100 Silicon Blvd, Suite 400, San Francisco, CA',
+        items: [{ description: 'Professional Growth Renewal Nov 2026', quantity: 1, unitPrice: 149.00, amount: 149.00 }],
+        subtotal: 149.00,
+        taxRate: 10,
+        taxAmount: 14.90,
+        discountAmount: 0.00,
+        totalAmount: 163.90,
+        paidAmount: 0.00,
+        issueDate: '2026-10-25',
+        dueDate: '2026-11-05',
+        status: 'Unpaid',
+        paymentMethod: 'Pending',
+        notes: 'Auto-charge scheduled on due date.'
+      }
+    ];
+
+    const INITIAL_PAYMENTS = [
+      {
+        id: 'PAY-9001',
+        invoiceId: 'INV-2026-001',
+        customerId: 'CUST-001',
+        customerName: 'David Miller (Acme Corp)',
+        amount: 163.90,
+        paymentMethod: 'Credit Card',
+        paymentDate: '2026-10-02',
+        reference: 'TXN-CC-8821901',
+        status: 'Completed',
+        isDemo: true
+      },
+      {
+        id: 'PAY-9002',
+        invoiceId: 'INV-2026-002',
+        customerId: 'CUST-002',
+        customerName: 'Elena Rostova (NovaWave Labs)',
+        amount: 5289.00,
+        paymentMethod: 'Bank Wire Transfer',
+        paymentDate: '2026-06-16',
+        reference: 'WIRE-NVW-992318',
+        status: 'Completed',
+        isDemo: true
+      }
+    ];
+
+    const INITIAL_QUOTATIONS = [
+      {
+        id: 'QUO-501',
+        customerName: 'Jordan Lee',
+        customerCompany: 'Nexus Technologies',
+        customerEmail: 'jordan@nexus.tech',
+        planName: 'Enterprise Scale (Custom 50-Seat Pack)',
+        billingCycle: 'Yearly',
+        estimatedAmount: 4500.00,
+        status: 'Sent',
+        validUntil: '2026-11-15'
+      },
+      {
+        id: 'QUO-502',
+        customerName: 'Samantha Green',
+        customerCompany: 'Zenith Media House',
+        customerEmail: 'sam@zenithmedia.com',
+        planName: 'Professional Growth Tier',
+        billingCycle: 'Yearly',
+        estimatedAmount: 1490.00,
+        status: 'Accepted',
+        validUntil: '2026-11-05'
+      }
+    ];
+
+    // --- REUSABLE BADGE ---
+    function Badge({ status, label, size = 'sm' }) {
+      const s = (status || '').toLowerCase();
+      let color = 'bg-slate-100 text-slate-700 border-slate-200';
+      let dot = 'bg-slate-400';
+
+      if (['active', 'paid', 'completed', 'accepted'].includes(s)) {
+        color = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        dot = 'bg-emerald-500';
+      } else if (['paused', 'pending'].includes(s)) {
+        color = 'bg-amber-50 text-amber-700 border-amber-200';
+        dot = 'bg-amber-500';
+      } else if (['overdue', 'expired', 'delinquent'].includes(s)) {
+        color = 'bg-rose-50 text-rose-700 border-rose-200 font-bold';
+        dot = 'bg-rose-500';
+      } else if (['unpaid', 'sent'].includes(s)) {
+        color = 'bg-blue-50 text-blue-700 border-blue-200';
+        dot = 'bg-blue-500';
+      }
+
+      return (
+        <span className={`inline-flex items-center gap-1.5 font-medium rounded-full border ${color} ${size === 'xs' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs'}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${dot}`}></span>
+          {label || status}
+        </span>
+      );
+    }
+
+    // --- SVG CHARTS FOR TOTAL DEPENDENCY INDEPENDENCE ---
+    function RevenueChart({ data }) {
+      // Points for SVG Area
+      const points = [
+        { month: 'May', val: 14200 },
+        { month: 'Jun', val: 19800 },
+        { month: 'Jul', val: 21500 },
+        { month: 'Aug', val: 24900 },
+        { month: 'Sep', val: 28400 },
+        { month: 'Oct', val: 34850 }
+      ];
+      const maxVal = 40000;
+      const height = 180;
+      const width = 500;
+
+      const pathCoords = points.map((p, i) => {
+        const x = (i / (points.length - 1)) * (width - 40) + 20;
+        const y = height - (p.val / maxVal) * (height - 30) - 10;
+        return `${x},${y}`;
+      }).join(' L ');
+
+      const areaCoords = `M 20,${height} L ${pathCoords} L ${width - 20},${height} Z`;
+
+      return (
+        <div className="w-full">
+          <svg viewBox={`0 0 ${width} ${height + 30}`} className="w-full h-48 overflow-visible">
+            <defs>
+              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366F1" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#6366F1" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            {/* Horizontal Grid lines */}
+            {[0, 10000, 20000, 30000, 40000].map((v, idx) => {
+              const y = height - (v / maxVal) * (height - 30) - 10;
+              return (
+                <g key={idx}>
+                  <line x1="20" y1={y} x2={width - 20} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <text x="2" y={y + 4} fontSize="9" fill="#94a3b8">${v / 1000}k</text>
+                </g>
+              );
+            })}
+
+            {/* Gradient Fill & Stroke */}
+            <path d={areaCoords} fill="url(#chartGrad)" />
+            <path d={`M ${pathCoords}`} fill="none" stroke="#4F46E5" strokeWidth="3" strokeLinecap="round" />
+
+            {/* Dots & Labels */}
+            {points.map((p, i) => {
+              const x = (i / (points.length - 1)) * (width - 40) + 20;
+              const y = height - (p.val / maxVal) * (height - 30) - 10;
+              return (
+                <g key={i} className="group cursor-pointer">
+                  <circle cx={x} cy={y} r="4" fill="#4F46E5" stroke="#fff" strokeWidth="2" />
+                  <text x={x} y={height + 18} fontSize="11" textAnchor="middle" fill="#64748b" fontWeight="600">
+                    {p.month}
+                  </text>
+                  <text x={x} y={y - 8} fontSize="10" textAnchor="middle" fill="#1e1b4b" fontWeight="bold">
+                    ${(p.val / 1000).toFixed(1)}k
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      );
+    }
+
+    // --- APPLICATION ROOT COMPONENT ---
+    function App() {
+      // LocalStorage state management
+      const [currentUser, setCurrentUser] = useState(() => {
+        try {
+          const s = localStorage.getItem('bl_user');
+          if (s) return JSON.parse(s);
+        } catch(e) {}
+        return INITIAL_USERS[0]; // Admin by default
+      });
+
+      const [data, setData] = useState(() => {
+        try {
+          const s = localStorage.getItem('bl_data_v2');
+          if (s) return JSON.parse(s);
+        } catch(e) {}
+        return {
+          plans: INITIAL_PLANS,
+          customers: INITIAL_CUSTOMERS,
+          subscriptions: INITIAL_SUBSCRIPTIONS,
+          invoices: INITIAL_INVOICES,
+          payments: INITIAL_PAYMENTS,
+          quotations: INITIAL_QUOTATIONS
+        };
+      });
+
+      // Active module tab
+      const [currentTab, setCurrentTab] = useState('dashboard');
+      const [mobileSidebar, setMobileSidebar] = useState(false);
+
+      // Global Modals State
+      const [createSubOpen, setCreateSubOpen] = useState(false);
+      const [previewInvoice, setPreviewInvoice] = useState(null);
+      const [recordPaymentModal, setRecordPaymentModal] = useState(false);
+      const [paymentTargetInvoice, setPaymentTargetInvoice] = useState(null);
+      const [createPlanModal, setCreatePlanModal] = useState(false);
+      const [editingPlan, setEditingPlan] = useState(null);
+      const [toastMsg, setToastMsg] = useState('');
+
+      // Persist to localStorage
+      useEffect(() => {
+        localStorage.setItem('bl_user', JSON.stringify(currentUser));
+      }, [currentUser]);
+
+      useEffect(() => {
+        localStorage.setItem('bl_data_v2', JSON.stringify(data));
+      }, [data]);
+
+      const showToast = (msg) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(''), 3000);
+      };
+
+      // Reset Demo State
+      const handleResetDemo = () => {
+        if (confirm('Reset all demo data back to clean factory state?')) {
+          const clean = {
+            plans: INITIAL_PLANS,
+            customers: INITIAL_CUSTOMERS,
+            subscriptions: INITIAL_SUBSCRIPTIONS,
+            invoices: INITIAL_INVOICES,
+            payments: INITIAL_PAYMENTS,
+            quotations: INITIAL_QUOTATIONS
+          };
+          setData(clean);
+          localStorage.setItem('bl_data_v2', JSON.stringify(clean));
+          showToast('Demo data reset successfully!');
+        }
+      };
+
+      // Switch Role
+      const handleSwitchRole = (role) => {
+        const u = INITIAL_USERS.find(user => user.role === role);
+        if (u) {
+          setCurrentUser(u);
+          setCurrentTab('dashboard');
+          showToast(`Switched workspace to ${u.name} (${role.toUpperCase()})`);
+        }
+      };
+
+      // CRUD: Subscriptions
+      const handleAddSubscription = (subForm) => {
+        const newSubId = `SUB-${1000 + data.subscriptions.length + 1}`;
+        const newSub = {
+          id: newSubId,
+          status: 'Active',
+          ...subForm
+        };
+
+        // Auto-generate invoice
+        const taxRate = 10;
+        const subtotal = Number(newSub.amount);
+        const taxAmt = (subtotal * taxRate) / 100;
+        const total = subtotal + taxAmt;
+        const due = new Date();
+        due.setDate(due.getDate() + 14);
+
+        const newInv = {
+          id: `INV-2026-00${data.invoices.length + 1}`,
+          subscriptionId: newSubId,
+          customerId: newSub.customerId,
+          customerName: newSub.customerName,
+          customerCompany: newSub.customerCompany,
+          customerEmail: newSub.customerEmail,
+          customerAddress: newSub.customerAddress || 'Address on file',
+          items: [{ description: `${newSub.planName} (${newSub.billingCycle})`, quantity: 1, unitPrice: subtotal, amount: subtotal }],
+          subtotal,
+          taxRate,
+          taxAmount: taxAmt,
+          discountAmount: 0,
+          totalAmount: total,
+          paidAmount: 0,
+          issueDate: newSub.startDate,
+          dueDate: due.toISOString().split('T')[0],
+          status: 'Unpaid',
+          paymentMethod: 'Pending',
+          notes: 'Standard renewal invoice generated on subscription creation.'
+        };
+
+        setData(prev => ({
+          ...prev,
+          subscriptions: [newSub, ...prev.subscriptions],
+          invoices: [newInv, ...prev.invoices]
+        }));
+
+        setCreateSubOpen(false);
+        showToast(`Subscription ${newSubId} activated! Invoice ${newInv.id} issued.`);
+      };
+
+      // CRUD: Payment Recording
+      const handleRecordPayment = (payForm) => {
+        const payId = `PAY-${9000 + data.payments.length + 1}`;
+        const newPay = {
+          id: payId,
+          status: 'Completed',
+          isDemo: true,
+          paymentDate: new Date().toISOString().split('T')[0],
+          ...payForm
+        };
+
+        const updatedInvoices = data.invoices.map(inv => {
+          if (inv.id === payForm.invoiceId) {
+            return { ...inv, status: 'Paid', paidAmount: payForm.amount, paymentMethod: payForm.paymentMethod };
+          }
+          return inv;
+        });
+
+        // If sub was overdue, restore to active
+        const targetInv = data.invoices.find(i => i.id === payForm.invoiceId);
+        let updatedSubs = data.subscriptions;
+        if (targetInv && targetInv.subscriptionId) {
+          updatedSubs = data.subscriptions.map(s => s.id === targetInv.subscriptionId ? { ...s, status: 'Active' } : s);
+        }
+
+        setData(prev => ({
+          ...prev,
+          payments: [newPay, ...prev.payments],
+          invoices: updatedInvoices,
+          subscriptions: updatedSubs
+        }));
+
+        setRecordPaymentModal(false);
+        showToast(`Payment of $${payForm.amount} captured! Invoice ${payForm.invoiceId} is now PAID.`);
+      };
+
+      // Convert Quotation
+      const handleConvertQuote = (quoteId) => {
+        const quote = data.quotations.find(q => q.id === quoteId);
+        if (!quote) return;
+
+        let cust = data.customers.find(c => c.email === quote.customerEmail);
+        if (!cust) {
+          cust = {
+            id: `CUST-00${data.customers.length + 1}`,
+            name: quote.customerName,
+            company: quote.customerCompany,
+            email: quote.customerEmail,
+            phone: '+1 555-0100',
+            address: 'Verified Office Address',
+            totalSpent: 0,
+            status: 'Active'
+          };
+          setData(prev => ({ ...prev, customers: [cust, ...prev.customers] }));
+        }
+
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+
+        handleAddSubscription({
+          customerId: cust.id,
+          customerName: cust.name,
+          customerCompany: cust.company,
+          customerEmail: cust.email,
+          customerAddress: cust.address,
+          planId: 'PLAN-002',
+          planName: quote.planName,
+          amount: quote.estimatedAmount,
+          billingCycle: quote.billingCycle || 'Yearly',
+          startDate: new Date().toISOString().split('T')[0],
+          expiryDate: nextYear.toISOString().split('T')[0]
+        });
+
+        // Mark quote accepted
+        setData(prev => ({
+          ...prev,
+          quotations: prev.quotations.map(q => q.id === quoteId ? { ...q, status: 'Accepted' } : q)
+        }));
+      };
+
+      // Add/Edit Plan
+      const handleSavePlan = (planForm) => {
+        if (editingPlan) {
+          setData(prev => ({
+            ...prev,
+            plans: prev.plans.map(p => p.id === editingPlan.id ? { ...p, ...planForm } : p)
+          }));
+          showToast(`Plan ${editingPlan.name} updated.`);
+        } else {
+          const newPlan = {
+            id: `PLAN-00${data.plans.length + 1}`,
+            popular: false,
+            ...planForm
+          };
+          setData(prev => ({ ...prev, plans: [...prev.plans, newPlan] }));
+          showToast(`New Tier ${newPlan.name} added!`);
+        }
+        setCreatePlanModal(false);
+        setEditingPlan(null);
+      };
+
+      // KPI Calculations
+      const mrr = data.subscriptions
+        .filter(s => s.status === 'Active')
+        .reduce((sum, s) => {
+          const a = Number(s.amount);
+          return sum + (s.billingCycle === 'Yearly' ? Math.round(a / 12) : a);
+        }, 0);
+
+      const activeSubsCount = data.subscriptions.filter(s => s.status === 'Active').length;
+      const pendingInvoicesCount = data.invoices.filter(i => i.status === 'Unpaid').length;
+      const overdueInvoicesCount = data.invoices.filter(i => i.status === 'Overdue').length;
+      const overdueAmount = data.invoices
+        .filter(i => i.status === 'Overdue')
+        .reduce((sum, i) => sum + (Number(i.totalAmount) - Number(i.paidAmount || 0)), 0);
+
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+          
+          {/* TOAST POPUP */}
+          {toastMsg && (
+            <div className="fixed top-4 right-4 z-50 bg-navy-900 text-white px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 border border-indigo-700/50 animate-bounce text-xs font-semibold">
+              <Icons.Sparkles className="w-4 h-4 text-brand-400" />
+              <span>{toastMsg}</span>
+            </div>
+          )}
+
+          {/* HACKATHON LIVE DEMO CONTROL BAR */}
+          <div className="bg-gradient-to-r from-navy-900 via-indigo-950 to-brand-900 text-white px-4 py-2.5 border-b border-indigo-800/40 shadow-inner">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 font-bold border border-brand-400/30 text-[11px]">
+                  <Icons.Sparkles className="w-3.5 h-3.5 text-brand-400" />
+                  Hackathon Ready
+                </span>
+                <span className="text-slate-300">
+                  Role: <strong className="text-white capitalize">{currentUser.role}</strong> ({currentUser.name})
+                </span>
+              </div>
+
+              {/* 1-Click Role Switcher */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-[11px] hidden sm:inline">1-Click Role Switch:</span>
+                <div className="bg-navy-800 rounded-lg p-0.5 border border-slate-700 flex">
+                  {['admin', 'staff', 'customer'].map(r => (
+                    <button
+                      key={r}
+                      onClick={() => handleSwitchRole(r)}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold capitalize transition-all ${
+                        currentUser.role === r ? 'bg-brand-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleResetDemo}
+                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[11px] font-medium transition-colors"
+                >
+                  Reset Demo
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex overflow-hidden">
+            
+            {/* SIDEBAR NAVIGATION */}
+            <aside className={`
+              fixed lg:static top-0 bottom-0 left-0 z-40 w-64 bg-navy-900 text-slate-300 flex flex-col border-r border-navy-800 transition-transform
+              ${mobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+            `}>
+              <div className="h-16 flex items-center justify-between px-6 border-b border-navy-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-600 to-purple-500 flex items-center justify-center text-white shadow-md">
+                    <Icons.Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-lg tracking-tight text-white">
+                      Bright<span className="text-brand-400">loop</span>
+                    </span>
+                    <span className="text-[10px] block font-semibold uppercase tracking-wider text-slate-400 -mt-1">
+                      Subscription Engine
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation links based on role */}
+              <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                <div className="px-3 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Menu
+                </div>
+
+                {currentUser.role === 'admin' && (
+                  <>
+                    <button
+                      onClick={() => { setCurrentTab('dashboard'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'dashboard' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Dashboard className="w-4 h-4" /> Admin Dashboard
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('subscriptions'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'subscriptions' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Repeat className="w-4 h-4" /> Subscriptions
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('invoices'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'invoices' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.FileText className="w-4 h-4" /> Invoices
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('payments'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'payments' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.CreditCard className="w-4 h-4" /> Payments
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('customers'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'customers' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Users className="w-4 h-4" /> Customers
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('plans'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'plans' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Layers className="w-4 h-4" /> Pricing Plans
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('quotations'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'quotations' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.FileCheck className="w-4 h-4" /> Quotations
+                    </button>
+                  </>
+                )}
+
+                {currentUser.role === 'staff' && (
+                  <>
+                    <button
+                      onClick={() => { setCurrentTab('dashboard'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'dashboard' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Dashboard className="w-4 h-4" /> Staff Desk
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('customers'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'customers' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Users className="w-4 h-4" /> Customer Management
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('subscriptions'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'subscriptions' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Repeat className="w-4 h-4" /> Subscription Management
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('quotations'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'quotations' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.FileCheck className="w-4 h-4" /> Quotations
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('invoices'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'invoices' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.FileText className="w-4 h-4" /> Invoice Management
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('payments'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'payments' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.CreditCard className="w-4 h-4" /> Payment Recording
+                    </button>
+                  </>
+                )}
+
+                {currentUser.role === 'customer' && (
+                  <>
+                    <button
+                      onClick={() => { setCurrentTab('dashboard'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'dashboard' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Dashboard className="w-4 h-4" /> My Subscription
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('plans'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'plans' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.Layers className="w-4 h-4" /> Available Plans
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('invoices'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'invoices' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.FileText className="w-4 h-4" /> My Invoices
+                    </button>
+                    <button
+                      onClick={() => { setCurrentTab('payments'); setMobileSidebar(false); }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        currentTab === 'payments' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-300 hover:bg-navy-800'
+                      }`}
+                    >
+                      <Icons.CreditCard className="w-4 h-4" /> Payment History
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* User footer */}
+              <div className="p-3 border-t border-navy-800">
+                <div className="flex items-center gap-3 p-2 rounded-xl bg-navy-800/60">
+                  <img src={currentUser.avatar} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                    <p className="text-[10px] text-slate-400 capitalize">{currentUser.role}</p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            {/* MAIN CONTENT AREA */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+              
+              {/* TOPBAR */}
+              <header className="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-20">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setMobileSidebar(!mobileSidebar)} className="lg:hidden p-2 text-slate-600">
+                    <Icons.Menu className="w-5 h-5" />
+                  </button>
+                  <span className="font-bold text-slate-800 text-sm hidden sm:inline capitalize">
+                    {currentUser.role} Workspace • {currentTab}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {currentUser.role !== 'customer' && (
+                    <button
+                      onClick={() => setCreateSubOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-xs"
+                    >
+                      <Icons.Plus className="w-3.5 h-3.5" />
+                      <span>New Subscription</span>
+                    </button>
+                  )}
+                </div>
+              </header>
+
+              {/* TAB CONTENT ROUTING */}
+              <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+                
+                {/* 1. ADMIN DASHBOARD */}
+                {currentTab === 'dashboard' && currentUser.role === 'admin' && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h1 className="text-2xl font-black text-navy-900 tracking-tight">Executive MRR & Growth Telemetry</h1>
+                        <p className="text-xs text-slate-500 mt-1">Platform-wide subscriptions, monthly recurring revenue, and invoice health.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { setEditingPlan(null); setCreatePlanModal(true); }}
+                          className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5"
+                        >
+                          <Icons.Plus className="w-3.5 h-3.5 text-brand-600" />
+                          <span>Create Plan</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs border-l-4 border-l-emerald-500">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Monthly Rec. Rev</span>
+                        <h3 className="text-2xl font-black text-navy-900 mt-1">${mrr.toLocaleString()}</h3>
+                        <p className="text-[11px] text-emerald-600 font-semibold mt-1">ARR ~${((mrr*12)/1000).toFixed(1)}k (+18.4%)</p>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs border-l-4 border-l-brand-500">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Active Subscriptions</span>
+                        <h3 className="text-2xl font-black text-navy-900 mt-1">{activeSubsCount}</h3>
+                        <p className="text-[11px] text-slate-400 mt-1">out of {data.subscriptions.length} registered</p>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs border-l-4 border-l-blue-500">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Total Customers</span>
+                        <h3 className="text-2xl font-black text-navy-900 mt-1">{data.customers.length}</h3>
+                        <p className="text-[11px] text-blue-600 font-semibold mt-1">100% active retention</p>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs border-l-4 border-l-amber-500">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Pending Invoices</span>
+                        <h3 className="text-2xl font-black text-navy-900 mt-1">{pendingInvoicesCount}</h3>
+                        <p className="text-[11px] text-amber-600 font-semibold mt-1">Awaiting settlement</p>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs border-l-4 border-l-rose-500">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Overdue Payments</span>
+                        <h3 className="text-2xl font-black text-navy-900 mt-1">{overdueInvoicesCount}</h3>
+                        <p className="text-[11px] text-rose-600 font-bold mt-1">${overdueAmount.toFixed(0)} overdue</p>
+                      </div>
+                    </div>
+
+                    {/* Chart & Distribution */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-sm font-bold text-navy-900">Monthly Revenue Growth</h3>
+                            <p className="text-xs text-slate-500">Monthly billed volume trajectory</p>
+                          </div>
+                          <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">+42% Growth</span>
+                        </div>
+                        <RevenueChart />
+                      </div>
+
+                      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                        <div>
+                          <h3 className="text-sm font-bold text-navy-900">Plan Tier Breakdown</h3>
+                          <p className="text-xs text-slate-500 mb-4">Customer subscriptions by tier</p>
+
+                          <div className="space-y-3">
+                            {data.plans.map((p, idx) => (
+                              <div key={p.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                                <div>
+                                  <p className="font-bold text-slate-900">{p.name}</p>
+                                  <p className="text-slate-400 text-[11px]">${p.price}/mo</p>
+                                </div>
+                                <span className="font-bold text-navy-900 bg-white px-2 py-1 rounded shadow-xs">{12 + idx * 16} clients</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-slate-100 text-center">
+                          <p className="text-xs text-slate-400">Total Contract Value: <strong>${((mrr*12)/1000).toFixed(0)}k ARR</strong></p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recent Transactions Table */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-navy-900">Recent Payment Transactions</h3>
+                        <button onClick={() => setCurrentTab('payments')} className="text-xs font-semibold text-brand-600 hover:underline">View All →</button>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase">
+                              <th className="pb-2.5">Receipt</th>
+                              <th className="pb-2.5">Customer</th>
+                              <th className="pb-2.5">Method</th>
+                              <th className="pb-2.5">Date</th>
+                              <th className="pb-2.5 text-right">Amount</th>
+                              <th className="pb-2.5 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.payments.slice(0, 5).map(pay => (
+                              <tr key={pay.id} className="hover:bg-slate-50/60">
+                                <td className="py-2.5 font-mono font-bold text-navy-900">{pay.id}</td>
+                                <td className="py-2.5 text-slate-700 font-medium">{pay.customerName}</td>
+                                <td className="py-2.5 text-slate-500">{pay.paymentMethod}</td>
+                                <td className="py-2.5 text-slate-400">{pay.paymentDate}</td>
+                                <td className="py-2.5 text-right font-black text-emerald-600">+${Number(pay.amount).toFixed(2)}</td>
+                                <td className="py-2.5 text-center"><Badge status="completed" label="Success" size="xs" /></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. STAFF DASHBOARD */}
+                {currentTab === 'dashboard' && currentUser.role === 'staff' && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h1 className="text-2xl font-black text-navy-900 tracking-tight">Staff Billing Desk</h1>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Operational Mode</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Manage accounts, dispatch quotations, create subscriptions and record payments.</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCreateSubOpen(true)}
+                          className="px-3.5 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold shadow-xs hover:bg-brand-700 flex items-center gap-1.5"
+                        >
+                          <Icons.Plus className="w-3.5 h-3.5" /> New Subscription
+                        </button>
+                        <button
+                          onClick={() => { setPaymentTargetInvoice(null); setRecordPaymentModal(true); }}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs hover:bg-emerald-700 flex items-center gap-1.5"
+                        >
+                          <Icons.CreditCard className="w-3.5 h-3.5" /> Record Payment
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Operational Banner */}
+                    <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center justify-between">
+                      <p><strong>Staff Authorization:</strong> Customer onboarding, recurring provisioning, quotation issuance, and payment entry authorized. System tier deletions restricted to Admin.</p>
+                      <span className="hidden sm:inline-block px-2.5 py-1 bg-blue-200/60 rounded text-[11px] font-bold">Standard Staff SLA</span>
+                    </div>
+
+                    {/* Staff Stats */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                        <span className="text-xs text-slate-400 font-semibold">Customers</span>
+                        <h4 className="text-xl font-black text-navy-900 mt-1">{data.customers.length}</h4>
+                      </div>
+                      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                        <span className="text-xs text-slate-400 font-semibold">Active Subscriptions</span>
+                        <h4 className="text-xl font-black text-navy-900 mt-1">{activeSubsCount}</h4>
+                      </div>
+                      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                        <span className="text-xs text-slate-400 font-semibold">Unpaid Invoices</span>
+                        <h4 className="text-xl font-black text-navy-900 mt-1">{pendingInvoicesCount}</h4>
+                      </div>
+                      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                        <span className="text-xs text-slate-400 font-semibold">Active Quotes</span>
+                        <h4 className="text-xl font-black text-navy-900 mt-1">{data.quotations.length}</h4>
+                      </div>
+                    </div>
+
+                    {/* Quotation to Sub conversion pipeline */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-bold text-navy-900">Quotations Pipeline</h3>
+                          <button onClick={() => setCurrentTab('quotations')} className="text-xs text-brand-600 font-semibold">Manage All →</button>
+                        </div>
+
+                        <div className="space-y-3">
+                          {data.quotations.map(quote => (
+                            <div key={quote.id} className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between text-xs">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-navy-900">{quote.customerCompany}</span>
+                                  <Badge status={quote.status} size="xs" />
+                                </div>
+                                <p className="text-slate-500 text-[11px] mt-0.5">{quote.planName} • Est. ${quote.estimatedAmount}</p>
+                              </div>
+                              {quote.status !== 'Accepted' ? (
+                                <button
+                                  onClick={() => handleConvertQuote(quote.id)}
+                                  className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold text-[11px] shadow-xs flex items-center gap-1"
+                                >
+                                  <span>Convert to Sub</span>
+                                  <Icons.ArrowRight className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <span className="text-emerald-600 font-bold text-[11px]">✓ Converted</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Invoices Pending Collection */}
+                      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-bold text-navy-900">Invoices Needing Payment</h3>
+                          <button onClick={() => setCurrentTab('invoices')} className="text-xs text-brand-600 font-semibold">All Invoices →</button>
+                        </div>
+
+                        <div className="space-y-3">
+                          {data.invoices.filter(i => i.status !== 'Paid').map(inv => (
+                            <div key={inv.id} className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between text-xs">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-navy-900">{inv.id}</span>
+                                  <Badge status={inv.status} size="xs" />
+                                </div>
+                                <p className="text-slate-600 font-medium mt-0.5">{inv.customerCompany || inv.customerName}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-navy-900 text-sm mr-1">${Number(inv.totalAmount).toFixed(2)}</span>
+                                <button
+                                  onClick={() => { setPaymentTargetInvoice(inv); setRecordPaymentModal(true); }}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-xs flex items-center gap-1"
+                                >
+                                  <Icons.CreditCard className="w-3 h-3" />
+                                  <span>Collect</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. CUSTOMER PORTAL DASHBOARD */}
+                {currentTab === 'dashboard' && currentUser.role === 'customer' && (
+                  <div className="space-y-6">
+                    <div className="bg-gradient-to-r from-navy-900 via-indigo-900 to-brand-900 text-white rounded-2xl p-6 sm:p-8 shadow-md">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 font-semibold text-xs border border-brand-400/30 mb-2">
+                            <Icons.Sparkles className="w-3.5 h-3.5" /> Verified Client Account
+                          </span>
+                          <h1 className="text-2xl sm:text-3xl font-black">Welcome, {currentUser.name}</h1>
+                          <p className="text-xs text-slate-300 mt-1">
+                            Organization: <strong>{currentUser.company}</strong> • Customer ID: {currentUser.customerId}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setCurrentTab('plans')}
+                          className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md self-start sm:self-auto"
+                        >
+                          Explore Plans & Upgrade →
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Active Subscription Overview */}
+                    {(() => {
+                      const custSub = data.subscriptions.find(s => s.customerId === currentUser.customerId || s.customerEmail === currentUser.email);
+                      if (!custSub) return <div className="bg-white p-6 rounded-2xl text-center text-xs text-slate-500">No active subscription found.</div>;
+
+                      return (
+                        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-bold text-navy-900">{custSub.planName}</h2>
+                                <Badge status={custSub.status} size="sm" />
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">Subscription Reference ID: {custSub.id}</p>
+                            </div>
+                            <div>
+                              <span className="text-2xl font-black text-navy-900">${custSub.amount}</span>
+                              <span className="text-xs text-slate-500 font-medium"> / {custSub.billingCycle}</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 text-xs">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <span className="text-slate-400 font-medium block mb-1">Billing Interval</span>
+                              <p className="text-sm font-bold text-slate-800">{custSub.billingCycle}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <span className="text-slate-400 font-medium block mb-1">Renewal Date</span>
+                              <p className="text-sm font-bold text-slate-800">{custSub.expiryDate}</p>
+                              <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">Active & In Good Standing</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <span className="text-slate-400 font-medium block mb-1">Started On</span>
+                              <p className="text-sm font-bold text-slate-800">{custSub.startDate}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Customer Invoices */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+                      <h3 className="text-sm font-bold text-navy-900 mb-3">My Invoices & Receipts</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="border-b border-slate-100 text-slate-400 font-semibold uppercase">
+                              <th className="pb-2.5">Invoice #</th>
+                              <th className="pb-2.5">Issue Date</th>
+                              <th className="pb-2.5">Due Date</th>
+                              <th className="pb-2.5 text-right">Total Amount</th>
+                              <th className="pb-2.5 text-center">Status</th>
+                              <th className="pb-2.5 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.invoices.filter(i => i.customerId === currentUser.customerId || i.customerEmail === currentUser.email).map(inv => (
+                              <tr key={inv.id} className="hover:bg-slate-50/60">
+                                <td className="py-2.5 font-mono font-bold text-navy-900">{inv.id}</td>
+                                <td className="py-2.5 text-slate-600">{inv.issueDate}</td>
+                                <td className="py-2.5 text-slate-600">{inv.dueDate}</td>
+                                <td className="py-2.5 text-right font-black text-navy-900">${Number(inv.totalAmount).toFixed(2)}</td>
+                                <td className="py-2.5 text-center"><Badge status={inv.status} size="xs" /></td>
+                                <td className="py-2.5 text-right">
+                                  <button
+                                    onClick={() => setPreviewInvoice(inv)}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center gap-1 ml-auto"
+                                  >
+                                    <Icons.Printer className="w-3 h-3 text-slate-500" /> Print / View
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. SUBSCRIPTIONS MODULE */}
+                {currentTab === 'subscriptions' && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h1 className="text-2xl font-black text-navy-900 tracking-tight">Subscription Management</h1>
+                        <p className="text-xs text-slate-500 mt-1">Provision subscriptions, filter by cycle, and generate invoices.</p>
+                      </div>
+                      {currentUser.role !== 'customer' && (
+                        <button
+                          onClick={() => setCreateSubOpen(true)}
+                          className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+                        >
+                          <Icons.Plus className="w-4 h-4" /> Create Subscription
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
+                              <th className="py-3 px-4">Sub ID</th>
+                              <th className="py-3 px-4">Customer & Account</th>
+                              <th className="py-3 px-4">Plan</th>
+                              <th className="py-3 px-4">Cycle</th>
+                              <th className="py-3 px-4">Renewal Date</th>
+                              <th className="py-3 px-4 text-right">Rate</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.subscriptions.map(sub => (
+                              <tr key={sub.id} className="hover:bg-slate-50/60">
+                                <td className="py-3.5 px-4 font-mono font-bold text-navy-900">{sub.id}</td>
+                                <td className="py-3.5 px-4">
+                                  <p className="font-bold text-slate-900">{sub.customerCompany || sub.customerName}</p>
+                                  <p className="text-[11px] text-slate-400">{sub.customerEmail}</p>
+                                </td>
+                                <td className="py-3.5 px-4 font-semibold text-brand-700">{sub.planName}</td>
+                                <td className="py-3.5 px-4 text-slate-600">{sub.billingCycle}</td>
+                                <td className="py-3.5 px-4 text-slate-500">{sub.expiryDate}</td>
+                                <td className="py-3.5 px-4 text-right font-black text-navy-900 text-sm">${Number(sub.amount).toFixed(2)}</td>
+                                <td className="py-3.5 px-4 text-center"><Badge status={sub.status} size="sm" /></td>
+                                <td className="py-3.5 px-4 text-right">
+                                  <button
+                                    onClick={() => {
+                                      // generate invoice
+                                      const inv = data.invoices.find(i => i.subscriptionId === sub.id) || {
+                                        id: `INV-2026-00${data.invoices.length + 1}`,
+                                        subscriptionId: sub.id,
+                                        customerId: sub.customerId,
+                                        customerName: sub.customerName,
+                                        customerCompany: sub.customerCompany,
+                                        customerEmail: sub.customerEmail,
+                                        customerAddress: 'Registered address',
+                                        items: [{ description: `${sub.planName} (${sub.billingCycle})`, quantity: 1, unitPrice: sub.amount, amount: sub.amount }],
+                                        subtotal: sub.amount,
+                                        taxRate: 10,
+                                        taxAmount: sub.amount * 0.1,
+                                        discountAmount: 0,
+                                        totalAmount: sub.amount * 1.1,
+                                        paidAmount: 0,
+                                        issueDate: new Date().toISOString().split('T')[0],
+                                        dueDate: sub.expiryDate,
+                                        status: 'Unpaid',
+                                        paymentMethod: 'Pending'
+                                      };
+                                      setPreviewInvoice(inv);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px]"
+                                  >
+                                    View Invoice
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. INVOICES MODULE */}
+                {currentTab === 'invoices' && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h1 className="text-2xl font-black text-navy-900 tracking-tight">Invoice Management</h1>
+                        <p className="text-xs text-slate-500 mt-1">Itemized tax receipts, breakdown calculations, and printable exports.</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
+                              <th className="py-3 px-4">Invoice #</th>
+                              <th className="py-3 px-4">Client Organization</th>
+                              <th className="py-3 px-4">Issue Date</th>
+                              <th className="py-3 px-4">Due Date</th>
+                              <th className="py-3 px-4 text-right">Tax (10%)</th>
+                              <th className="py-3 px-4 text-right">Grand Total</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.invoices.map(inv => (
+                              <tr key={inv.id} className="hover:bg-slate-50/60">
+                                <td className="py-3.5 px-4 font-mono font-bold text-navy-900">{inv.id}</td>
+                                <td className="py-3.5 px-4">
+                                  <p className="font-bold text-slate-900">{inv.customerCompany || inv.customerName}</p>
+                                  <p className="text-[11px] text-slate-400">{inv.customerEmail}</p>
+                                </td>
+                                <td className="py-3.5 px-4 text-slate-600">{inv.issueDate}</td>
+                                <td className="py-3.5 px-4 text-slate-600">{inv.dueDate}</td>
+                                <td className="py-3.5 px-4 text-right text-slate-500 font-medium">${Number(inv.taxAmount || 0).toFixed(2)}</td>
+                                <td className="py-3.5 px-4 text-right font-black text-navy-900 text-sm">${Number(inv.totalAmount).toFixed(2)}</td>
+                                <td className="py-3.5 px-4 text-center"><Badge status={inv.status} size="sm" /></td>
+                                <td className="py-3.5 px-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      onClick={() => setPreviewInvoice(inv)}
+                                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] flex items-center gap-1"
+                                    >
+                                      <Icons.Printer className="w-3 h-3 text-slate-500" />
+                                      <span>Print / View</span>
+                                    </button>
+
+                                    {inv.status !== 'Paid' && currentUser.role !== 'customer' && (
+                                      <button
+                                        onClick={() => { setPaymentTargetInvoice(inv); setRecordPaymentModal(true); }}
+                                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs"
+                                      >
+                                        <Icons.CreditCard className="w-3 h-3" />
+                                        <span>Collect</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. PAYMENTS MODULE */}
+                {currentTab === 'payments' && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h1 className="text-2xl font-black text-navy-900 tracking-tight">Payment Ledger</h1>
+                        <p className="text-xs text-slate-500 mt-1">Audit log of captured payments and receipt references.</p>
+                      </div>
+                      {currentUser.role !== 'customer' && (
+                        <button
+                          onClick={() => { setPaymentTargetInvoice(null); setRecordPaymentModal(true); }}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+                        >
+                          <Icons.Plus className="w-4 h-4" /> Record Payment
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                      <strong>⚡ Demo Simulation Mode:</strong> Payment recordings update application state and clear invoices instantly in localStorage.
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
+                              <th className="py-3 px-4">Receipt #</th>
+                              <th className="py-3 px-4">Invoice Reference</th>
+                              <th className="py-3 px-4">Customer</th>
+                              <th className="py-3 px-4">Payment Method</th>
+                              <th className="py-3 px-4">Date</th>
+                              <th className="py-3 px-4 text-right">Amount Captured</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.payments.map(pay => (
+                              <tr key={pay.id} className="hover:bg-slate-50/60">
+                                <td className="py-3.5 px-4 font-mono font-bold text-navy-900">{pay.id}</td>
+                                <td className="py-3.5 px-4 font-semibold text-brand-600">{pay.invoiceId}</td>
+                                <td className="py-3.5 px-4 text-slate-800 font-medium">{pay.customerName}</td>
+                                <td className="py-3.5 px-4 text-slate-600">{pay.paymentMethod}</td>
+                                <td className="py-3.5 px-4 text-slate-500">{pay.paymentDate}</td>
+                                <td className="py-3.5 px-4 text-right font-black text-emerald-600 text-sm">+${Number(pay.amount).toFixed(2)}</td>
+                                <td className="py-3.5 px-4 text-center"><Badge status="completed" label="Captured" size="sm" /></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 7. CUSTOMERS MODULE */}
+                {currentTab === 'customers' && (
+                  <div className="space-y-6">
+                    <h1 className="text-2xl font-black text-navy-900 tracking-tight">Customer Accounts Directory</h1>
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
+                              <th className="py-3 px-4">ID</th>
+                              <th className="py-3 px-4">Company & Contact</th>
+                              <th className="py-3 px-4">Email</th>
+                              <th className="py-3 px-4">Phone</th>
+                              <th className="py-3 px-4 text-right">Lifetime Billed</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.customers.map(c => (
+                              <tr key={c.id} className="hover:bg-slate-50/60">
+                                <td className="py-3.5 px-4 font-mono font-bold text-navy-900">{c.id}</td>
+                                <td className="py-3.5 px-4">
+                                  <p className="font-bold text-slate-900">{c.company}</p>
+                                  <p className="text-[11px] text-slate-500">{c.name}</p>
+                                </td>
+                                <td className="py-3.5 px-4 text-slate-600">{c.email}</td>
+                                <td className="py-3.5 px-4 text-slate-500">{c.phone}</td>
+                                <td className="py-3.5 px-4 text-right font-black text-navy-900">${Number(c.totalSpent).toFixed(2)}</td>
+                                <td className="py-3.5 px-4 text-center"><Badge status={c.status} size="sm" /></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 8. PLANS MODULE */}
+                {currentTab === 'plans' && (
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h1 className="text-2xl font-black text-navy-900 tracking-tight">SaaS Subscription Plans</h1>
+                        <p className="text-xs text-slate-500 mt-1">Multi-tier recurring pricing matrices.</p>
+                      </div>
+                      {currentUser.role === 'admin' && (
+                        <button
+                          onClick={() => { setEditingPlan(null); setCreatePlanModal(true); }}
+                          className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+                        >
+                          <Icons.Plus className="w-4 h-4" /> Create New Tier
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {data.plans.map(p => (
+                        <div key={p.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-lg font-bold text-navy-900">{p.name}</h3>
+                              <span className="font-mono text-[10px] bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-600">{p.id}</span>
+                            </div>
+                            <div className="my-4 pb-4 border-b border-slate-100">
+                              <span className="text-3xl font-black text-navy-900">${p.price}</span>
+                              <span className="text-xs text-slate-400"> / month</span>
+                            </div>
+                            <div className="space-y-2 mb-6">
+                              {p.features?.map((f, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs text-slate-600">
+                                  <Icons.Check className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>{f}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-100">
+                            {currentUser.role === 'admin' ? (
+                              <button
+                                onClick={() => { setEditingPlan(p); setCreatePlanModal(true); }}
+                                className="w-full py-2 rounded-xl text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
+                              >
+                                Edit Tier
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setCreateSubOpen(true)}
+                                className="w-full py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-xs"
+                              >
+                                Subscribe / Upgrade
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 9. QUOTATIONS MODULE */}
+                {currentTab === 'quotations' && (
+                  <div className="space-y-6">
+                    <h1 className="text-2xl font-black text-navy-900 tracking-tight">Quotations & Proposals</h1>
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-semibold uppercase tracking-wider">
+                              <th className="py-3 px-4">Quote Ref</th>
+                              <th className="py-3 px-4">Client</th>
+                              <th className="py-3 px-4">Proposed Tier</th>
+                              <th className="py-3 px-4">Valid Until</th>
+                              <th className="py-3 px-4 text-right">Value</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {data.quotations.map(q => (
+                              <tr key={q.id} className="hover:bg-slate-50/60">
+                                <td className="py-3.5 px-4 font-mono font-bold text-navy-900">{q.id}</td>
+                                <td className="py-3.5 px-4">
+                                  <p className="font-bold text-slate-900">{q.customerCompany}</p>
+                                  <p className="text-[11px] text-slate-400">{q.customerEmail}</p>
+                                </td>
+                                <td className="py-3.5 px-4 font-medium text-slate-800">{q.planName}</td>
+                                <td className="py-3.5 px-4 text-slate-500">{q.validUntil}</td>
+                                <td className="py-3.5 px-4 text-right font-black text-navy-900">${Number(q.estimatedAmount).toFixed(2)}</td>
+                                <td className="py-3.5 px-4 text-center"><Badge status={q.status} size="sm" /></td>
+                                <td className="py-3.5 px-4 text-right">
+                                  {q.status !== 'Accepted' ? (
+                                    <button
+                                      onClick={() => handleConvertQuote(q.id)}
+                                      className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-xs"
+                                    >
+                                      Convert to Sub
+                                    </button>
+                                  ) : (
+                                    <span className="text-emerald-600 font-bold text-xs">✓ Converted</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </main>
+            </div>
+          </div>
+
+          {/* CREATE SUBSCRIPTION MODAL */}
+          {createSubOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg p-6">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-bold text-navy-900">Provision New Subscription</h3>
+                  <button onClick={() => setCreateSubOpen(false)} className="text-slate-400 hover:text-slate-600">
+                    <Icons.X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.target;
+                    const c = data.customers.find(cust => cust.id === form.customer.value);
+                    const p = data.plans.find(plan => plan.id === form.plan.value);
+                    const cycle = form.cycle.value;
+                    const amt = cycle === 'Yearly' ? p.yearlyPrice : p.price;
+
+                    const today = new Date().toISOString().split('T')[0];
+                    const exp = new Date();
+                    if (cycle === 'Monthly') exp.setMonth(exp.getMonth() + 1);
+                    else if (cycle === 'Yearly') exp.setFullYear(exp.getFullYear() + 1);
+                    else if (cycle === 'Weekly') exp.setDate(exp.getDate() + 7);
+                    else exp.setDate(exp.getDate() + 1);
+
+                    handleAddSubscription({
+                      customerId: c.id,
+                      customerName: c.name,
+                      customerCompany: c.company,
+                      customerEmail: c.email,
+                      customerAddress: c.address,
+                      planId: p.id,
+                      planName: p.name,
+                      amount: amt,
+                      billingCycle: cycle,
+                      startDate: today,
+                      expiryDate: exp.toISOString().split('T')[0]
+                    });
+                  }}
+                  className="space-y-4 mt-4 text-xs"
+                >
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Select Customer</label>
+                    <select name="customer" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium" required>
+                      {data.customers.map(c => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.company})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Subscription Plan</label>
+                    <select name="plan" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium" required>
+                      {data.plans.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} (${p.price}/mo)</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Billing Cycle</label>
+                    <select name="cycle" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium" required>
+                      <option value="Daily">Daily</option>
+                      <option value="Weekly">Weekly</option>
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly (Annual Discount)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onClick={() => setCreateSubOpen(false)} className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold">
+                      Cancel
+                    </button>
+                    <button type="submit" className="px-5 py-2 rounded-lg bg-brand-600 text-white font-bold hover:bg-brand-700 shadow-xs">
+                      Activate Subscription
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* RECORD PAYMENT MODAL */}
+          {recordPaymentModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg p-6">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-bold text-navy-900">Record Payment</h3>
+                  <button onClick={() => setRecordPaymentModal(false)} className="text-slate-400 hover:text-slate-600">
+                    <Icons.X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.target;
+                    const inv = data.invoices.find(i => i.id === form.invoice.value);
+                    if (!inv) return;
+
+                    handleRecordPayment({
+                      invoiceId: inv.id,
+                      customerId: inv.customerId,
+                      customerName: inv.customerCompany || inv.customerName,
+                      amount: Number(form.amount.value),
+                      paymentMethod: form.method.value,
+                      reference: `TXN-REC-${Math.floor(100000 + Math.random() * 900000)}`
+                    });
+                  }}
+                  className="space-y-4 mt-4 text-xs"
+                >
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+                    <strong>⚡ Demo Mode:</strong> Recording payment will mark the invoice as Paid in localStorage immediately.
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Select Invoice</label>
+                    <select
+                      name="invoice"
+                      defaultValue={paymentTargetInvoice ? paymentTargetInvoice.id : (data.invoices.find(i => i.status !== 'Paid')?.id || data.invoices[0]?.id)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium"
+                      required
+                    >
+                      {data.invoices.map(i => (
+                        <option key={i.id} value={i.id}>{i.id} — {i.customerCompany} (${Number(i.totalAmount).toFixed(2)}) [{i.status}]</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Amount ($)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="amount"
+                        defaultValue={paymentTargetInvoice ? paymentTargetInvoice.totalAmount : 163.90}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Payment Method</label>
+                      <select name="method" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium">
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Bank Wire">Bank Wire</option>
+                        <option value="UPI / QR">UPI / QR</option>
+                        <option value="PayPal">PayPal</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onClick={() => setRecordPaymentModal(false)} className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold">
+                      Cancel
+                    </button>
+                    <button type="submit" className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-xs">
+                      Confirm & Capture Payment
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* PRINTABLE INVOICE PREVIEW MODAL */}
+          {previewInvoice && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl p-6 sm:p-8 my-8 relative text-slate-800" id="printable-invoice-modal">
+                
+                {/* Header actions */}
+                <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 no-print">
+                  <div className="flex items-center gap-2">
+                    <Badge status={previewInvoice.status} size="sm" />
+                    <span className="text-xs text-slate-500">Invoice: <strong>{previewInvoice.id}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5"
+                    >
+                      <Icons.Printer className="w-3.5 h-3.5" /> Print / Save PDF
+                    </button>
+                    <button
+                      onClick={() => setPreviewInvoice(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
+                    >
+                      <Icons.X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Printable Invoice Body */}
+                <div className="space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">B</div>
+                        <span className="text-xl font-black text-navy-900 tracking-tight">Bright<span className="text-brand-600">loop</span></span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Brightloop Technologies Inc. • Tax ID: US-EIN-9908123</p>
+                      <p className="text-xs text-slate-500">101 SaaS Parkway, Suite 500, Cloud City, CA</p>
+                    </div>
+                    <div className="text-right text-xs">
+                      <span className="text-xs font-black uppercase tracking-wider text-brand-600">OFFICIAL INVOICE</span>
+                      <h2 className="text-xl font-black text-navy-900">{previewInvoice.id}</h2>
+                      <p className="text-slate-500 mt-1">Issue Date: <strong>{previewInvoice.issueDate}</strong></p>
+                      <p className="text-slate-500">Due Date: <strong>{previewInvoice.dueDate}</strong></p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-100 text-xs">
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Billed To</span>
+                      <h4 className="text-sm font-bold text-navy-900">{previewInvoice.customerCompany || previewInvoice.customerName}</h4>
+                      <p className="text-slate-600">{previewInvoice.customerName}</p>
+                      <p className="text-slate-500">{previewInvoice.customerAddress || 'Address on file'}</p>
+                      <p className="text-slate-500">{previewInvoice.customerEmail}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Status</span>
+                      <p className="text-sm font-bold capitalize text-slate-800">{previewInvoice.status}</p>
+                      <p className="text-slate-500 mt-0.5">Method: {previewInvoice.paymentMethod || 'Credit Card'}</p>
+                    </div>
+                  </div>
+
+                  {/* Line Items Table */}
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
+                        <th className="pb-2">Description</th>
+                        <th className="pb-2 text-center">Qty</th>
+                        <th className="pb-2 text-right">Price</th>
+                        <th className="pb-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(previewInvoice.items || [{ description: 'SaaS Subscription Plan', quantity: 1, unitPrice: previewInvoice.subtotal, amount: previewInvoice.subtotal }]).map((it, i) => (
+                        <tr key={i}>
+                          <td className="py-2.5 font-medium text-slate-800">{it.description}</td>
+                          <td className="py-2.5 text-center">{it.quantity}</td>
+                          <td className="py-2.5 text-right">${Number(it.unitPrice).toFixed(2)}</td>
+                          <td className="py-2.5 text-right font-bold text-slate-900">${Number(it.amount).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Totals */}
+                  <div className="flex justify-end pt-4 border-t border-slate-200 text-xs">
+                    <div className="w-64 space-y-1.5">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Subtotal:</span>
+                        <span className="font-semibold text-slate-800">${Number(previewInvoice.subtotal).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Tax ({previewInvoice.taxRate || 10}%):</span>
+                        <span className="font-semibold text-slate-800">${Number(previewInvoice.taxAmount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-base font-black text-navy-900 pt-2 border-t border-slate-200">
+                        <span>Grand Total:</span>
+                        <span className="text-brand-600">${Number(previewInvoice.totalAmount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CREATE/EDIT PLAN MODAL */}
+          {createPlanModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-md p-6">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-bold text-navy-900">{editingPlan ? 'Edit Plan' : 'Create Subscription Tier'}</h3>
+                  <button onClick={() => setCreatePlanModal(false)} className="text-slate-400 hover:text-slate-600">
+                    <Icons.X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.target;
+                    handleSavePlan({
+                      name: form.name.value,
+                      price: Number(form.price.value),
+                      yearlyPrice: Number(form.yearlyPrice.value),
+                      cycle: 'Monthly',
+                      features: ['Up to 15 Members', '100 GB Cloud Storage', 'Full Automation']
+                    });
+                  }}
+                  className="space-y-4 mt-4 text-xs"
+                >
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Tier Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      defaultValue={editingPlan?.name || ''}
+                      placeholder="e.g. Scale Pro"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Monthly Price ($)</label>
+                      <input
+                        type="number"
+                        name="price"
+                        defaultValue={editingPlan?.price || 89}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Annual Price ($)</label>
+                      <input
+                        type="number"
+                        name="yearlyPrice"
+                        defaultValue={editingPlan?.yearlyPrice || 890}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onClick={() => setCreatePlanModal(false)} className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold">
+                      Cancel
+                    </button>
+                    <button type="submit" className="px-5 py-2 rounded-lg bg-brand-600 text-white font-bold hover:bg-brand-700 shadow-xs">
+                      Save Tier
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
